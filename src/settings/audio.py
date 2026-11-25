@@ -26,6 +26,9 @@ class AudioSettings:
         self.vad_pre_buffer_duration = vad_pre_buffer_duration
         self.input_device = input_device
         self.input_device_missing = None  # name from .env that matched nothing
+        # Fork additions (2026-11-25): speed / volume tuning.
+        self.upload_sample_rate = int(os.getenv("UPLOAD_SAMPLE_RATE", 16000))
+        self.normalize_input = os.getenv("NORMALIZE_INPUT", "1") in ("1", "true", "True", "yes", "YES")
 
     def valid_modes(self):
         return [0, 1]

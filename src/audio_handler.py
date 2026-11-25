@@ -24,6 +24,11 @@ class AudioHandler:
         )
 
     def handle_recording(self, event):
+        # Fork fix: the SPACE hook is global (it fires while you type anywhere).
+        # In hands-free mode it used to open a second mic stream on top of the
+        # listening one, so it is ignored there.
+        if self.recorder.vad_enabled:
+            return
         if self.recorder.is_recording:
             print(
                 f"\n{colorama.Fore.GREEN}Recording stopped, processing audio...{
@@ -63,5 +68,5 @@ class AudioHandler:
     def start_vad_mode(self):
         print(f"{colorama.Fore.CYAN}=== VAD Mode Active ==={colorama.Style.RESET_ALL}")
         print(f"{colorama.Fore.CYAN}Speak naturally - recording starts/stops automatically{colorama.Style.RESET_ALL}")
-        print(f"{colorama.Fore.CYAN}Press SPACE to manually trigger, Ctrl+C to exit{colorama.Style.RESET_ALL}")
+        print(f"{colorama.Fore.CYAN}SPACE is ignored in this mode. Type set_mode 0 for push-to-talk, quit to exit{colorama.Style.RESET_ALL}")
         self.recorder.start_continuous()

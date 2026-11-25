@@ -1,6 +1,7 @@
 import numpy as np
 from io import BytesIO
 from scipy.io.wavfile import write
+from scipy.signal import resample_poly
 
 from src.settings.audio import AudioSettings
 
@@ -43,8 +44,26 @@ class AudioProcessor:
         min_samples = int(self.settings.min_audio_duration * self.settings.sample_rate)
         if audio_data.shape[0] < min_samples:
             return None
-        audio_data_pcm = (audio_data * 32767).astype(np.int16)
+
+        # Fork change (2026-11-25): mono, peak-normalised and downsampled before
+        # upload. A 16 kHz clip is 3x smaller than 48 kHz, so it uploads faster,
+        # and a normalised input gives a louder, steadier converted voice.
+        if audio_data.ndim > 1:
+            audio_data = audio_data.mean(axis=1)
+        if self.settings.normalize_input:
+            peak = float(np.max(np.abs(audio_data)))
+            if 0 < peak < 0.9:
+                audio_data = audio_data * min(0.9 / peak, 8.0)  # cap boost so noise isn't blown up
+        rate = self.settings.sample_rate
+        upload_rate = self.settings.upload_sample_rate
+        if upload_rate and upload_rate < rate:
+            from math import gcd
+            g = gcd(rate, upload_rate)
+            audio_data = resample_poly(audio_data, upload_rate // g, rate // g)
+            rate = upload_rate
+
+        audio_data_pcm = (np.clip(audio_data, -1.0, 1.0) * 32767).astype(np.int16)
         wav_memory = BytesIO()
-        write(wav_memory, self.settings.sample_rate, audio_data_pcm)
+        write(wav_memory, rate, audio_data_pcm)
         wav_memory.seek(0)
         return wav_memory

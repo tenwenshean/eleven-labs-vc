@@ -31,6 +31,8 @@ class ElevenLabsClient:
         self.output_sample_rate = output_sample_rate
         self.api_sample_rate = api_sample_rate
         self.output_device_missing = None  # name from .env that matched nothing
+        self.output_gain = 1.0
+        self.streaming_latency = None
 
     @classmethod
     def from_env(cls):
@@ -50,6 +52,10 @@ class ElevenLabsClient:
             api_sample_rate=int(os.getenv("API_SAMPLE_RATE", 22050)),
         )
         client.output_device_missing = missing_name
+        # Fork additions (2026-11-25): volume and latency tuning.
+        client.output_gain = float(os.getenv("OUTPUT_GAIN", 1.0))
+        latency = os.getenv("OPTIMIZE_STREAMING_LATENCY", "3").strip()
+        client.streaming_latency = int(latency) if latency.isdigit() else None
         return client
 
     def convert_audio_safe(self, audio: BytesIO, remove_background_noise: bool) -> bool:
@@ -79,11 +85,16 @@ class ElevenLabsClient:
 
     def convert_audio(self, audio: BytesIO, remove_background_noise: bool):
         start_time = time.time()
+        extra = {}
+        if self.streaming_latency is not None:
+            extra["optimize_streaming_latency"] = self.streaming_latency
         audio_stream = self.client.speech_to_speech.convert_as_stream(
             voice_id=self.voice_id,
             audio=audio,
-            output_format="pcm_22050",
+            # Fork fix: was hard-coded to pcm_22050 even when API_SAMPLE_RATE changed.
+            output_format=f"pcm_{self.api_sample_rate}",
             remove_background_noise=remove_background_noise,
+            **extra,
         )
 
         stream = None
@@ -97,6 +108,7 @@ class ElevenLabsClient:
             )
             stream.start()
 
+            leftover = b""
             for chunk in audio_stream:
                 if not chunk:
                     continue
@@ -105,10 +117,17 @@ class ElevenLabsClient:
                     latency_ms = (first_chunk_time - start_time) * 1000
                     print(f"{colorama.Fore.CYAN}First chunk in {latency_ms:.0f}ms{colorama.Style.RESET_ALL}")
 
+                # Fork fix: a network chunk can end halfway through a 16-bit
+                # sample; keep the odd byte for the next chunk.
+                chunk = leftover + chunk
+                cut = len(chunk) - (len(chunk) % 2)
+                chunk, leftover = chunk[:cut], chunk[cut:]
                 samples = np.frombuffer(chunk, dtype=np.int16).astype(np.float32) / 32768.0
                 if samples.size == 0:
                     continue
                 samples = self._resample(samples, self.api_sample_rate, self.output_sample_rate)
+                if self.output_gain != 1.0:
+                    samples = np.clip(samples * self.output_gain, -1.0, 1.0)
                 stream.write(samples.reshape(-1, 1))
         finally:
             if stream is not None:

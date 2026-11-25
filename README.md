@@ -17,7 +17,7 @@ flowchart LR
 ```
 
 1. **You speak.** The app starts recording as soon as it hears your voice.
-2. **You pause.** After about 0.8 s of silence it sends the clip to ElevenLabs.
+2. **You pause.** After about 0.5 s of silence it sends the clip to ElevenLabs.
 3. **The new voice plays into VB-Cable**, a free virtual audio cable. Your call app uses VB-Cable as its microphone.
 
 **This is not a real-time voice changer like MorphVOX.** It converts phrase by phrase, so the other person hears each sentence about 1–3 seconds after you finish it. That's fine for normal conversation, but too slow for fast gaming callouts.
@@ -96,8 +96,12 @@ All settings are explained in [`.env.example`](.env.example). These are the ones
 | `INPUT_DEVICE` / `INPUT_DEVICE_NAME` | Windows default | Which mic to use: a number from `--devices` or part of its name |
 | `OUTPUT_DEVICE_NAME` / `OUTPUT_DEVICE` | `CABLE Input` | Where the voice goes. Falls back to your speakers if it isn't found |
 | `VAD_THRESHOLD` | `0.01` | How loud you need to be to trigger recording. Raise it (0.02–0.05) if noise sets it off |
-| `VAD_SILENCE_DURATION` | `0.8` | Seconds of silence before a phrase is sent |
-| `REMOVE_BACKGROUND_NOISE` | `1` | Ask ElevenLabs to clean up the recording |
+| `VAD_SILENCE_DURATION` | `0.5` | Seconds of silence before a phrase is sent. Lower = faster, but it may cut you off |
+| `OUTPUT_GAIN` | `1.5` | Volume of the converted voice (1.0 = unchanged) |
+| `NORMALIZE_INPUT` | `1` | Boost quiet recordings before sending them |
+| `REMOVE_BACKGROUND_NOISE` | `0` | Ask ElevenLabs to clean up the recording. Slower, so only turn it on in noisy rooms |
+| `UPLOAD_SAMPLE_RATE` | `16000` | The clip is downsampled to this before upload, so it uploads faster |
+| `OPTIMIZE_STREAMING_LATENCY` | `3` | 0–4: ask ElevenLabs to start streaming sooner |
 
 Advanced: `SAMPLE_RATE`, `CHANNELS`, `SILENCE_THRESHOLD`, `OUTPUT_SAMPLE_RATE`, `API_SAMPLE_RATE`, `VAD_MIN_RECORDING_DURATION`, `VAD_PRE_BUFFER_DURATION`, `MIN_AUDIO_DURATION`.
 
@@ -112,7 +116,9 @@ Advanced: `SAMPLE_RATE`, `CHANNELS`, `SILENCE_THRESHOLD`, `OUTPUT_SAMPLE_RATE`, 
 | `No output matches 'CABLE Input'` | VB-Cable isn't installed yet, or you haven't rebooted since installing it. Until then the voice plays through your speakers |
 | `No microphone matches ...` | Run `start.bat --devices` and set `INPUT_DEVICE` to the number |
 | It keeps triggering on background noise | Raise `VAD_THRESHOLD`, or use push-to-talk (`MODE=0`) |
-| It cuts you off mid-sentence | Raise `VAD_SILENCE_DURATION`, e.g. to 1.2 |
+| It cuts you off mid-sentence | Raise `VAD_SILENCE_DURATION`, e.g. to 0.8–1.2 |
+| Voice too quiet or too loud | Change `OUTPUT_GAIN` (e.g. 2.0 louder, 1.0 original). Above ~2.5 it can distort |
+| Still feels slow | Speak in shorter phrases: the wait is mostly the pause plus ElevenLabs processing. A wired connection helps too |
 | Call app hears nothing | Make sure its input is **CABLE Output** (not CABLE Input) and that the startup line says `Output: CABLE Input` |
 | Credits run out fast | Every phrase is billed by ElevenLabs. Push-to-talk avoids converting noise you didn't mean to send |
 
