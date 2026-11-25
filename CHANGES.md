@@ -37,6 +37,13 @@ This project is a modified version of [cavoq/elevenlabs-live-vc](https://github.
 - **Streaming fix:** a network chunk that ends halfway through a 16-bit sample no longer causes an error or a click.
 - **SPACE is ignored in hands-free mode.** The key hook is global, so typing a space in any app used to open a second recording on top of the listening one.
 
+### Simple window (new)
+
+- **`live-vc-ui.py` + `start-ui.bat`**: a small Tkinter window (no extra packages) with Start/Stop, a live mic meter with a draggable talk threshold, pause length, output volume, noise-suppression and mute toggles, and voice, microphone, output and API key pickers. Changes apply immediately and are saved to `.env`.
+- **Closing the window (X) exits the app completely.** Audio is stopped, settings are saved and the process ends, so nothing keeps using the mic or credits in the background.
+- **`src/engine.py`**: the engine behind the window. The mic stays open while a phrase converts (phrases queue up), the output device stays open between phrases, and phrases longer than 12 s are sent in pieces. When the voice plays to speakers instead of VB-Cable, the mic is paused during playback so it doesn't convert its own output.
+- `src/el_client.py`: `convert_audio` can write to an already-open output stream and report the time to the first chunk; `describe_api_error` is shared by the CLI and the UI.
+
 ### Docs
 
 - README rewritten as a step-by-step guide for call apps, with a troubleshooting table.

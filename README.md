@@ -5,7 +5,15 @@
 Talk normally, pause, and the people in your Discord, Zoom, Teams or WhatsApp call hear you in an AI voice.
 
 > This is a fork of **[elevenlabs-live-vc](https://github.com/cavoq/elevenlabs-live-vc) by [cavoq](https://github.com/cavoq)** (David Stromberger), with contributions from [ayeantics](https://github.com/ayeantics).
-> All of the core voice-changing code is theirs. This fork adds a one-click Windows setup, hands-free mode as the default, and fixes for common setup errors. See [CREDITS.md](CREDITS.md) and [CHANGES.md](CHANGES.md).
+> All of the core voice-changing code is theirs. This fork adds a simple window, a one-click Windows setup, hands-free mode as the default, and fixes for common setup errors. See [CREDITS.md](CREDITS.md) and [CHANGES.md](CHANGES.md).
+
+## Which file do I double-click?
+
+| File | When |
+|---|---|
+| **`setup.bat`** | Once, the first time (and again after updating the project) |
+| **`start-ui.bat`** | Every time you want to use the voice changer. Opens the window |
+| `start.bat` | Optional: the original command-line version, without the window |
 
 ---
 
@@ -30,7 +38,7 @@ flowchart LR
 | What | Where | Notes |
 |---|---|---|
 | ElevenLabs account and API key | [elevenlabs.io/app/settings/api-keys](https://elevenlabs.io/app/settings/api-keys) | The free plan works with the premade voices |
-| VB-Cable (free) | [vb-audio.com/Cable](https://vb-audio.com/Cable/) | Unzip, right-click `VBCABLE_Setup_x64.exe` → **Run as administrator** → **Install Driver**, then reboot |
+| VB-Cable (free) | [vb-audio.com/Cable](https://vb-audio.com/Cable/) | Unzip, right-click `VBCABLE_Setup_x64.exe` → **Run as administrator** → **Install Driver**. Reboot if "CABLE Input" doesn't show up afterwards |
 | Python launcher **or** winget | Already on most Windows 10/11 PCs | Setup uses one of them to install everything else |
 
 ### 2. Run setup
@@ -40,29 +48,35 @@ Double-click **`setup.bat`**. It:
 - installs [uv](https://docs.astral.sh/uv/) if you don't have it,
 - downloads a private Python 3.13 into this folder (`.python/`) and leaves any Python you already have alone,
 - installs the packages into `.venv/`,
-- creates `.env` and opens it in Notepad.
+- creates `.env`, your settings file, and opens it in Notepad. You can close Notepad: the window in the next step fills it in for you.
 
-### 3. Fill in `.env`
+### 3. Open the window
 
-```env
-API_KEY=sk_...your key...
-VOICE_ID=XrExE9yKIg1WjnnlVkGX   # Matilda, a free premade voice
-```
+Double-click **`start-ui.bat`**.
 
-To see every voice your key can use, run `start.bat --voices`.
+1. Paste your **API key** at the bottom and press **↻** next to *Voice* to load your voices.
+2. Pick a **Voice**. Free accounts can only use the ones marked *(premade)*, such as Matilda.
+3. Check **Microphone** (your real mic) and **Send voice to** (**CABLE Input** for calls).
+4. Press **▶ Start** and say something. The dot turns orange while you talk and blue while it converts.
+5. Set the **Talk threshold**: stay quiet, look at the grey bar, and drag the slider so the red line sits just above it.
 
-### 4. Start it
+Everything you change is saved to `.env`, so next time just open the window and press Start.
 
-Double-click **`start.bat`**. You'll see something like:
+**Closing the window (X) stops everything and exits the app.** Nothing keeps running in the background.
 
-```
-Mode:   hands-free (speak, then pause)
-Mic:    Microphone (HyperX SoloCast) [#1]
-Output: CABLE Input (VB-Audio Virtual Cable) [#7]
-[VAD] Listening for voice...
-```
+| Control | What it does |
+|---|---|
+| **Start / Stop** | Starts listening. The dot shows Listening (green), Recording (orange) or Converting (blue) |
+| **Mic level + Talk threshold** | The bar is your mic level. Drag the red line just above the bar's level when you're silent: anything louder counts as talking |
+| **Pause before sending** | How long you must stay quiet before a phrase is sent. Shorter means faster replies |
+| **Output volume** | Volume of the converted voice |
+| **Noise suppression** | ElevenLabs cleans up the recording. Slower, so only use it in noisy rooms |
+| **Mute** | Stops sending without closing the app |
+| **Voice / Microphone / Send voice to / API key** | Your setup. All settings are saved to `.env` |
 
-### 5. Pick the mic in your call app
+In the window you can **keep talking while the previous phrase converts**: phrases queue up instead of the mic waiting for each reply. Phrases longer than 12 s are sent in pieces. If you send the voice to your speakers instead of VB-Cable, the mic pauses while the voice plays, so it doesn't convert its own output.
+
+### 4. Pick the mic in your call app
 
 In Discord, Zoom, Teams, OBS or WhatsApp Desktop, open **Settings → Voice/Audio → Input device** and choose **CABLE Output (VB-Audio Virtual Cable)**.
 
@@ -71,6 +85,28 @@ In Discord, Zoom, Teams, OBS or WhatsApp Desktop, open **Settings → Voice/Audi
 ---
 
 ## Everyday use
+
+**With the window (`start-ui.bat`)**
+
+| Do this | How |
+|---|---|
+| Start / stop the voice changer | **▶ Start** / **■ Stop** |
+| Pause without closing | Tick **Mute** |
+| Faster replies | Move **Pause before sending** left (0.3–0.4 s) |
+| It triggers on background noise | Move **Talk threshold** right, or tick **Noise suppression** |
+| Change the voice | Pick another **Voice**. It applies to the next phrase |
+| Quit | Close the window (X). The app exits completely |
+
+**With the command line (`start.bat`)**
+
+At startup it shows the mode and devices in use:
+
+```
+Mode:   hands-free (speak, then pause)
+Mic:    Microphone (HyperX SoloCast) [#2]
+Output: CABLE Input (VB-Audio Virtual Cable) [#6]
+[VAD] Listening for voice...
+```
 
 | Do this | How |
 |---|---|
@@ -85,7 +121,7 @@ In Discord, Zoom, Teams, OBS or WhatsApp Desktop, open **Settings → Voice/Audi
 
 ## Settings (`.env`)
 
-All settings are explained in [`.env.example`](.env.example). These are the ones you're most likely to change:
+The window saves most of these for you. You only need to edit `.env` by hand for the command-line version or the advanced options. All settings are explained in [`.env.example`](.env.example). These are the ones you're most likely to change:
 
 | Setting | Default | What it does |
 |---|---|---|

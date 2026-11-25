@@ -23,6 +23,14 @@ API_ERROR_HINTS = {
 }
 
 
+def describe_api_error(e: ApiError):
+    """(one-line message, hint) for an ElevenLabs ApiError."""
+    detail = e.body.get("detail", e.body) if isinstance(e.body, dict) else e.body
+    if isinstance(detail, dict):
+        detail = detail.get("message", detail)
+    return f"ElevenLabs error {e.status_code}: {detail}", API_ERROR_HINTS.get(e.status_code, "")
+
+
 class ElevenLabsClient:
     def __init__(self, api_key, voice_id, output_device=None, output_sample_rate=48000, api_sample_rate=22050):
         self.client = ElevenLabs(api_key=api_key)
@@ -65,11 +73,8 @@ class ElevenLabsClient:
             print(f"{colorama.Fore.GREEN}Done.{colorama.Style.RESET_ALL}")
             return True
         except ApiError as e:
-            hint = API_ERROR_HINTS.get(e.status_code, "")
-            detail = e.body.get("detail", e.body) if isinstance(e.body, dict) else e.body
-            if isinstance(detail, dict):
-                detail = detail.get("message", detail)
-            print(f"{colorama.Fore.RED}ElevenLabs error {e.status_code}: {detail}{colorama.Style.RESET_ALL}")
+            message, hint = describe_api_error(e)
+            print(f"{colorama.Fore.RED}{message}{colorama.Style.RESET_ALL}")
             if hint:
                 print(f"{colorama.Fore.YELLOW}{hint}{colorama.Style.RESET_ALL}")
         except Exception as e:  # network, audio device, ...
@@ -83,7 +88,8 @@ class ElevenLabsClient:
             return samples
         return resample_poly(samples, target_rate, orig_rate).astype(np.float32)
 
-    def convert_audio(self, audio: BytesIO, remove_background_noise: bool):
+    def convert_audio(self, audio: BytesIO, remove_background_noise: bool,
+                      output_stream=None, on_first_chunk=None):
         start_time = time.time()
         extra = {}
         if self.streaming_latency is not None:
@@ -99,14 +105,20 @@ class ElevenLabsClient:
 
         stream = None
         first_chunk_time = None
+        # Fork change: an already-open stream can be passed in (the UI keeps one
+        # open so each phrase skips opening the audio device).
+        own_stream = output_stream is None
         try:
-            stream = sd.OutputStream(
-                samplerate=self.output_sample_rate,
-                channels=1,
-                dtype="float32",
-                device=self.output_device
-            )
-            stream.start()
+            if own_stream:
+                stream = sd.OutputStream(
+                    samplerate=self.output_sample_rate,
+                    channels=1,
+                    dtype="float32",
+                    device=self.output_device
+                )
+                stream.start()
+            else:
+                stream = output_stream
 
             leftover = b""
             for chunk in audio_stream:
@@ -115,7 +127,11 @@ class ElevenLabsClient:
                 if first_chunk_time is None:
                     first_chunk_time = time.time()
                     latency_ms = (first_chunk_time - start_time) * 1000
-                    print(f"{colorama.Fore.CYAN}First chunk in {latency_ms:.0f}ms{colorama.Style.RESET_ALL}")
+                    self.last_latency_ms = latency_ms
+                    if on_first_chunk:
+                        on_first_chunk(latency_ms)
+                    else:
+                        print(f"{colorama.Fore.CYAN}First chunk in {latency_ms:.0f}ms{colorama.Style.RESET_ALL}")
 
                 # Fork fix: a network chunk can end halfway through a 16-bit
                 # sample; keep the odd byte for the next chunk.
@@ -130,6 +146,6 @@ class ElevenLabsClient:
                     samples = np.clip(samples * self.output_gain, -1.0, 1.0)
                 stream.write(samples.reshape(-1, 1))
         finally:
-            if stream is not None:
+            if own_stream and stream is not None:
                 stream.stop()
                 stream.close()

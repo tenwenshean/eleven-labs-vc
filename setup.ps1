@@ -66,4 +66,4 @@ if (-not (Test-Path .env)) {
     Write-Host '.env already exists, leaving it as is.'
 }
 
-Write-Host "`nSetup finished. Double-click start.bat to run the voice changer." -ForegroundColor Green
+Write-Host "`nSetup finished. Double-click start-ui.bat to open the voice changer window (or start.bat for the command-line version)." -ForegroundColor Green
