@@ -20,7 +20,6 @@ flowchart LR
 2. **You pause.** After about 0.5 s of silence it sends the clip to ElevenLabs.
 3. **The new voice plays into VB-Cable**, a free virtual audio cable. Your call app uses VB-Cable as its microphone.
 
-**This is not a real-time voice changer like MorphVOX.** It converts phrase by phrase, so the other person hears each sentence about 1–3 seconds after you finish it. That's fine for normal conversation, but too slow for fast gaming callouts.
 
 ---
 
